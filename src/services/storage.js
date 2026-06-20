@@ -37,6 +37,21 @@ function normalizeTask(item) {
   };
 }
 
+function normalizeCustomerPayload(customer) {
+  const payload = {
+    ...customer,
+    id: customer.id || genId('c'),
+  };
+
+  if (customer.createdAt && !customer.created_at) {
+    payload.created_at = customer.createdAt;
+  }
+
+  delete payload.createdAt;
+
+  return payload;
+}
+
 export async function hydrateCustomersFromSupabase() {
   const { data, error } = await supabase.from('customers').select('*');
   if (error) {
@@ -66,4 +81,42 @@ export async function hydrateTasksFromSupabase() {
 
 export function genId(prefix = 'id') {
   return prefix + Date.now() + Math.random().toString(36).slice(2, 6);
+}
+
+export async function createCustomer(customer) {
+  const payload = normalizeCustomerPayload(customer);
+  const { data, error } = await supabase
+    .from('customers')
+    .insert([payload])
+    .select();
+
+  if (error) throw error;
+  return Array.isArray(data) ? data.map(normalizeCustomer) : [];
+}
+
+export async function updateCustomer(id, customer) {
+  const payload = normalizeCustomerPayload(customer);
+
+  const { data, error } = await supabase
+    .from('customers')
+    .update(payload)
+    .eq('id', id)
+    .select();
+
+  if (error) throw error;
+
+  return Array.isArray(data)
+    ? data.map(normalizeCustomer)
+    : [];
+}
+
+export async function deleteCustomer(id) {
+  const { error } = await supabase
+    .from('customers')
+    .delete()
+    .eq('id', id);
+
+  if (error) throw error;
+
+  return true;
 }

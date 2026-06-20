@@ -2,7 +2,7 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useCRM } from '../context/CRMContext';
-import { genId } from '../services/storage';
+import { createCustomer, updateCustomer, deleteCustomer} from '../services/storage';
 import { STATUS_LABELS } from '../services/constants';
 import Badge from '../components/Badge';
 import Modal from '../components/Modal';
@@ -34,23 +34,30 @@ export default function Customers() {
     setModalOpen(true);
   }
 
-  function handleSave() {
+  async function handleSave() {
     if (!form.name.trim()) return alert('Vui lòng nhập tên khách hàng!');
-    if (editItem) {
-      setCustomers(prev => prev.map(c => c.id === editItem.id ? { ...c, ...form } : c));
-    } else {
-      setCustomers(prev => [...prev, {
-        ...form,
-        id: genId('c'),
-        createdAt: new Date().toISOString().slice(0, 10),
-      }]);
+
+    try {
+      if (editItem) {
+        const updatedCustomer = await updateCustomer(editItem.id, form);
+        setCustomers(prev => prev.map(c => c.id === editItem.id ? updatedCustomer[0] : c));
+      } else {
+        const createdCustomers = await createCustomer(form);
+        if (createdCustomers.length > 0) {
+          setCustomers(prev => [...prev, createdCustomers[0]]);
+        }
+      }
+      setModalOpen(false);
+    } catch (error) {
+      console.error('Create customer error:', error);
+      alert('Không thể tạo khách hàng. Vui lòng thử lại!');
     }
-    setModalOpen(false);
   }
 
   function handleDelete(id, e) {
     e.stopPropagation();
     if (window.confirm('Bạn có chắc muốn xoá khách hàng này?')) {
+      deleteCustomer(id);
       setCustomers(prev => prev.filter(c => c.id !== id));
     }
   }
