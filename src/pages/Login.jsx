@@ -42,7 +42,7 @@ export default function Login() {
     }
   }
 
-  const usernameErr = touched.username && !form.username.trim() ? 'Vui lòng nhập username hoặc email' : '';
+  const usernameErr = touched.username && !form.username.trim() ? 'Vui lòng nhập username' : '';
   const passwordErr = touched.password && !form.password ? 'Vui lòng nhập mật khẩu' : '';
 
   return (
