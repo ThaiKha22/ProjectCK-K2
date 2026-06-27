@@ -2,11 +2,12 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useCRM } from '../context/CRMContext';
-import { createCustomer, updateCustomer, deleteCustomer} from '../services/storage';
+import { createCustomer, updateCustomer, deleteCustomer } from '../services/storage';
 import { STATUS_LABELS } from '../services/constants';
 import Badge from '../components/Badge';
 import Modal from '../components/Modal';
 import { useSearch } from '../hooks/useSearch';
+import { useAuth } from '../context/AuthContext';
 
 const EMPTY_FORM = { name: '', phone: '', email: '', company: '', status: 'tiem-nang' };
 
@@ -18,8 +19,9 @@ export default function Customers() {
   const [modalOpen, setModalOpen] = useState(false);
   const [editItem, setEditItem] = useState(null);
   const [form, setForm] = useState(EMPTY_FORM);
-
   const displayed = filterStatus ? filtered.filter(c => c.status === filterStatus) : filtered;
+  const { user } = useAuth();
+  const isAdmin = user?.role === 'admin';
 
   function openAdd() {
     setEditItem(null);
@@ -73,7 +75,9 @@ export default function Customers() {
           <h1 className="page-title">Khách hàng</h1>
           <p className="page-sub">{customers.length} khách hàng trong hệ thống</p>
         </div>
-        <button className="btn btn-primary" onClick={openAdd}>+ Thêm khách hàng</button>
+        {isAdmin && (
+          <button className="btn btn-primary" onClick={openAdd}>+ Thêm khách hàng</button>
+        )}
       </div>
 
       {/* Filter bar */}
@@ -94,7 +98,7 @@ export default function Customers() {
           <table>
             <thead>
               <tr>
-                <th>Họ tên</th><th>SĐT</th><th>Email</th><th>Công ty</th><th>Trạng thái</th><th>Ngày tạo</th><th>Thao tác</th>
+                <th>Họ tên</th><th>SĐT</th><th>Email</th><th>Công ty</th><th>Trạng thái</th><th>Ngày tạo</th>{isAdmin && <th>Thao tác</th>}
               </tr>
             </thead>
             <tbody>
@@ -113,12 +117,14 @@ export default function Customers() {
                     <td>{c.company || '—'}</td>
                     <td><Badge value={c.status} type="status" /></td>
                     <td className="text-meta">{c.createdAt || '—'}</td>
-                    <td>
-                      <div className="action-btns" onClick={e => e.stopPropagation()}>
-                        <button className="btn btn-ghost btn-sm" onClick={e => openEdit(c, e)}>✏️ Sửa</button>
-                        <button className="btn btn-danger btn-sm" onClick={e => handleDelete(c.id, e)}>🗑️</button>
-                      </div>
-                    </td>
+                    {isAdmin && (
+                      <td>
+                        <div className="action-btns" onClick={e => e.stopPropagation()}>
+                          <button className="btn btn-ghost btn-sm" onClick={e => openEdit(c, e)}>✏️ Sửa</button>
+                          <button className="btn btn-danger btn-sm" onClick={e => handleDelete(c.id, e)}>🗑️</button>
+                        </div>
+                      </td>
+                    )}
                   </tr>
                 ))
               }

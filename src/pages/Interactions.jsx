@@ -3,8 +3,10 @@ import React, { useState } from 'react';
 import { useCRM } from '../context/CRMContext';
 import { genId } from '../services/storage';
 import { INTERACTION_TYPES } from '../services/constants';
+import { createInteraction, deleteInteraction } from '../services/storage';
 import Badge from '../components/Badge';
 import Modal from '../components/Modal';
+import { useAuth } from '../context/AuthContext';
 
 const EMPTY_FORM = { customerId: '', type: 'call', content: '', date: new Date().toISOString().slice(0, 10) };
 
@@ -14,6 +16,8 @@ export default function Interactions() {
   const [filterType, setFilterType] = useState('');
   const [modalOpen, setModalOpen] = useState(false);
   const [form, setForm] = useState(EMPTY_FORM);
+  const { user } = useAuth();
+  const isAdmin = user?.role === 'admin';
 
   const filtered = interactions
     .filter(i => {
@@ -26,16 +30,25 @@ export default function Interactions() {
     })
     .sort((a, b) => String(b?.date || '').localeCompare(String(a?.date || '')));
 
-  function handleSave() {
+  async function handleSave() {
     if (!form.customerId) return alert('Vui lòng chọn khách hàng!');
     if (!form.content.trim()) return alert('Vui lòng nhập nội dung!');
-    setInteractions(prev => [...prev, { ...form, id: genId('i'), createdAt: new Date().toISOString().slice(0, 10) }]);
-    setModalOpen(false);
-    setForm(EMPTY_FORM);
+    try {
+      const createdInteractions = await createInteraction(form.customerId, form);
+      if (createdInteractions.length > 0) {
+        setInteractions(prev => [...prev, { ...form, id: genId('i'), createdAt: new Date().toISOString().slice(0, 10) }]);
+      }
+      setModalOpen(false);
+      setForm(EMPTY_FORM);
+    } catch (error) {
+      console.error('Create interaction error:', error);
+      alert('Không thể tạo tương tác. Vui lòng thử lại!');
+    }
   }
 
   function handleDelete(id) {
     if (window.confirm('Xoá tương tác này?')) {
+      deleteInteraction(id);
       setInteractions(prev => prev.filter(i => i.id !== id));
     }
   }
@@ -49,9 +62,11 @@ export default function Interactions() {
           <h1 className="page-title">Lịch sử tương tác</h1>
           <p className="page-sub">{interactions.length} tương tác được ghi nhận</p>
         </div>
-        <button className="btn btn-primary" onClick={() => { setForm(EMPTY_FORM); setModalOpen(true); }}>
-          + Thêm tương tác
-        </button>
+        {isAdmin && (
+          <button className="btn btn-primary" onClick={() => { setForm(EMPTY_FORM); setModalOpen(true); }}>
+            + Thêm tương tác
+          </button>
+        )}
       </div>
 
       <div className="filter-bar">
@@ -70,7 +85,7 @@ export default function Interactions() {
         <div className="table-wrap">
           <table>
             <thead>
-              <tr><th>Ngày</th><th>Khách hàng</th><th>Loại</th><th>Nội dung</th><th>Thao tác</th></tr>
+              <tr><th>Ngày</th><th>Khách hàng</th><th>Loại</th><th>Nội dung</th>{isAdmin && <th>Thao tác</th>}</tr>
             </thead>
             <tbody>
               {filtered.length === 0
@@ -92,9 +107,11 @@ export default function Interactions() {
                       <td style={{ maxWidth: 360, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                         {i.content}
                       </td>
-                      <td>
-                        <button className="btn btn-ghost btn-sm" onClick={() => handleDelete(i.id)}>🗑️</button>
-                      </td>
+                      {isAdmin && (
+                        <td>
+                          <button className="btn btn-ghost btn-sm" onClick={() => handleDelete(i.id)}>🗑️</button>
+                        </td>
+                      )}
                     </tr>
                   );
                 })

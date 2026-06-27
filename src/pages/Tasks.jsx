@@ -6,6 +6,8 @@ import { TASK_STATUS } from '../services/constants';
 import Badge from '../components/Badge';
 import Modal from '../components/Modal';
 import { useSearch } from '../hooks/useSearch';
+import { createTask, updateTask, deleteTask } from '../services/storage';
+import { useAuth } from '../context/AuthContext';
 
 const EMPTY_FORM = { customerId: '', title: '', assignee: '', dueDate: '', status: 'todo' };
 
@@ -16,25 +18,40 @@ export default function Tasks() {
   const [modalOpen, setModalOpen] = useState(false);
   const [editItem, setEditItem] = useState(null);
   const [form, setForm] = useState(EMPTY_FORM);
+  const { user } = useAuth();
+  const isAdmin = user?.role === 'admin';
 
   const filtered = filterStatus ? searchFiltered.filter(t => t.status === filterStatus) : searchFiltered;
 
   function openAdd() { setEditItem(null); setForm(EMPTY_FORM); setModalOpen(true); }
   function openEdit(t, e) { e.stopPropagation(); setEditItem(t); setForm({ ...t }); setModalOpen(true); }
 
-  function handleSave() {
+  async function handleSave() {
     if (!form.title.trim()) return alert('Vui lòng nhập tiêu đề công việc!');
-    if (editItem) {
-      setTasks(prev => prev.map(t => t.id === editItem.id ? { ...t, ...form } : t));
-    } else {
-      setTasks(prev => [...prev, { ...form, id: genId('t') }]);
+    try {
+      if (editItem) {
+        const updatedTasks = await updateTask(editItem.id, form);
+        setTasks(prev => prev.map(t => t.id === editItem.id ? { ...t, ...form } : t));
+      } else {
+        const createdTasks = await createTask(form);
+        if (createdTasks.length > 0) {
+          setTasks(prev => [...prev, ...createdTasks]);
+        }
+      }
+      setModalOpen(false);
+    } catch (error) {
+      console.error('Task error:', error);
+      alert('Không thể lưu công việc. Vui lòng thử lại!');
     }
-    setModalOpen(false);
   }
+
 
   function handleDelete(id, e) {
     e.stopPropagation();
-    if (window.confirm('Xoá công việc này?')) setTasks(prev => prev.filter(t => t.id !== id));
+    if (window.confirm('Xoá công việc này?')) {
+      deleteTask(id);
+      setTasks(prev => prev.filter(t => t.id !== id));
+    }
   }
 
   function changeStatus(id, status) {
@@ -56,7 +73,9 @@ export default function Tasks() {
           <h1 className="page-title">Quản lý công việc</h1>
           <p className="page-sub">{tasks.length} công việc · {counts.done} hoàn thành</p>
         </div>
-        <button className="btn btn-primary" onClick={openAdd}>+ Thêm công việc</button>
+        {isAdmin && (
+          <button className="btn btn-primary" onClick={openAdd}>+ Thêm công việc</button>
+        )}
       </div>
 
       {/* Summary strip */}
@@ -86,7 +105,7 @@ export default function Tasks() {
         <div className="table-wrap">
           <table>
             <thead>
-              <tr><th>Công việc</th><th>Khách hàng</th><th>Phụ trách</th><th>Hạn chót</th><th>Trạng thái</th><th>Thao tác</th></tr>
+              <tr><th>Công việc</th><th>Khách hàng</th><th>Phụ trách</th><th>Hạn chót</th><th>Trạng thái</th>{isAdmin && <th>Thao tác</th>}</tr>
             </thead>
             <tbody>
               {filtered.length === 0
@@ -105,21 +124,18 @@ export default function Tasks() {
                         </span>
                       </td>
                       <td>
-                        <select
-                          className="form-control"
-                          style={{ padding: '4px 8px', fontSize: 12, width: 'auto', minWidth: 120 }}
-                          value={t.status}
-                          onChange={e => changeStatus(t.id, e.target.value)}
-                        >
-                          {Object.entries(TASK_STATUS).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
-                        </select>
+                        <span className="form-control" style={{ padding: '4px 8px', fontSize: 12, width: 'auto', minWidth: 120 }}>
+                          {TASK_STATUS[t.status] || t.status}
+                        </span>
                       </td>
-                      <td>
-                        <div className="action-btns">
-                          <button className="btn btn-ghost btn-sm" onClick={e => openEdit(t, e)}>✏️ Sửa</button>
-                          <button className="btn btn-danger btn-sm" onClick={e => handleDelete(t.id, e)}>🗑️</button>
-                        </div>
-                      </td>
+                      {isAdmin && (
+                        <td>
+                          <div className="action-btns">
+                            <button className="btn btn-ghost btn-sm" onClick={e => openEdit(t, e)}>✏️ Sửa</button>
+                            <button className="btn btn-danger btn-sm" onClick={e => handleDelete(t.id, e)}>🗑️</button>
+                          </div>
+                        </td>
+                      )}
                     </tr>
                   );
                 })

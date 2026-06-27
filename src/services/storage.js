@@ -52,6 +52,74 @@ function normalizeCustomerPayload(customer) {
   return payload;
 }
 
+async function getNextInteractionId() {
+  const interactions = await hydrateInteractionsFromSupabase();
+
+  const maxNumber = interactions.reduce((max, interaction) => {
+    const match = String(interaction.id || '').match(/^i(\d+)$/);
+
+    if (!match) return max;
+
+    const number = Number(match[1]);
+    return Number.isNaN(number) ? max : Math.max(max, number);
+  }, 0);
+
+  return `i${maxNumber + 1}`;
+}
+
+async function getNextTaskId() {
+  const tasks = await hydrateTasksFromSupabase();
+
+  const maxNumber = tasks.reduce((max, task) => {
+    const match = String(task.id || '').match(/^t(\d+)$/);
+
+    if (!match) return max;
+
+    const number = Number(match[1]);
+    return Number.isNaN(number) ? max : Math.max(max, number);
+  }, 0);
+
+  return `t${maxNumber + 1}`;
+}
+
+async function normalizeTaskPayload(task) {
+  const nextId = task.id || await getNextTaskId();
+
+  const payload = {
+    ...task,
+    id: nextId,
+  };
+
+  if (task.customerId && !task.customer_id) {
+    payload.customer_id = task.customerId;
+  }
+
+  if (task.dueDate && !task.due_date) {
+    payload.due_date = task.dueDate;
+  }
+
+  delete payload.customerId;
+  delete payload.dueDate;
+
+  return payload;
+}
+
+async function normalizeInteractionPayload(interaction) {
+  const nextId = interaction.id || await getNextInteractionId();
+
+  return {
+    id: nextId,
+    customer_id: interaction.customerId || interaction.customer_id || '',
+    type: interaction.type,
+    content: interaction.content || '',
+    interaction_date:
+      interaction.interactionDate ||
+      interaction.interaction_date ||
+      interaction.date ||
+      null,
+  };
+}
+
 export async function hydrateCustomersFromSupabase() {
   const { data, error } = await supabase.from('customers').select('*');
   if (error) {
@@ -113,6 +181,66 @@ export async function updateCustomer(id, customer) {
 export async function deleteCustomer(id) {
   const { error } = await supabase
     .from('customers')
+    .delete()
+    .eq('id', id);
+
+  if (error) throw error;
+
+  return true;
+}
+
+export async function createInteraction(id, interaction) {
+  const payload = await normalizeInteractionPayload(interaction);
+  const { data, error } = await supabase
+    .from('interactions')
+    .insert([payload])
+    .select();
+
+  if (error) throw error;
+  return Array.isArray(data) ? data.map(normalizeInteraction) : [];
+}
+
+export async function deleteInteraction(id) {
+  const { error } = await supabase
+    .from('interactions')
+    .delete()
+    .eq('id', id);
+
+  if (error) throw error;
+
+  return true;
+}
+
+export async function createTask(task) {
+  const payload = await normalizeTaskPayload(task);
+  const { data, error } = await supabase
+    .from('tasks')
+    .insert([payload])
+    .select();
+
+  if (error) throw error;
+  return Array.isArray(data) ? data.map(normalizeTask) : [];
+}
+
+export async function updateTask(id, task) {
+  const payload = await normalizeTaskPayload(task);
+
+  const { data, error } = await supabase
+    .from('tasks')
+    .update(payload)
+    .eq('id', id)
+    .select();
+
+  if (error) throw error;
+
+  return Array.isArray(data)
+    ? data.map(normalizeTask)
+    : [];
+}
+
+export async function deleteTask(id) {
+  const { error } = await supabase
+    .from('tasks')
     .delete()
     .eq('id', id);
 
