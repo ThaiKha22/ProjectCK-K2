@@ -2,6 +2,7 @@
 import React from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import logoutIcon from '../assets/logout-svgrepo-com.svg';
 
 const NAV_ITEMS = [
   { path: '/', label: 'Dashboard', icon: '📊' },
@@ -83,7 +84,7 @@ export default function Sidebar() {
             aria-label="Đăng xuất"
             style={{ flexShrink: 0 }}
           >
-            <img src="/src/assets/logout-svgrepo-com.svg" alt="Logout" style={{ width: 18, height: 18 }} />
+            <img src={logoutIcon} alt="Logout" style={{ width: 18, height: 18 }} />
           </button>
         </div>
       </div>
